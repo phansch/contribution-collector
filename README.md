@@ -1,4 +1,4 @@
-# myprs
+# prs
 
 Fetches a list of your open source PRs.
 
@@ -8,7 +8,7 @@ repositories.
 ## Usage
 
 ```
-GH_TOKEN=your_github_token LIMIT=15
+GH_TOKEN=your_github_token LIMIT=15 cargo run
 ```
 
 * `LIMIT` is optional, default is 20.
