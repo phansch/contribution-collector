@@ -16,9 +16,4 @@ GH_TOKEN=your_github_token LIMIT=15 cargo run
 * `LIMIT` is optional, default is 20.
 * `GH_TOKEN` is required and can be created [here][token].
 
-## Nice to haves
-
-* Tests, maybe with [mockito][mockito]
-
 [token]: https://github.com/settings/tokens
-[mockito]: https://github.com/lipanski/mockito
