@@ -1,0 +1,10 @@
+[package]
+name = "prs"
+version = "0.1.0"
+authors = ["Philipp Hansch <dev@phansch.net>"]
+edition = "2018"
+
+[dependencies]
+hubcaps = "0.5"
+tokio = "0.1.13"
+futures = "0.1"

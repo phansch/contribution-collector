@@ -1,0 +1,12 @@
+---
+language: rust
+cache: cargo
+
+rust: stable
+env:
+  global:
+    - RUST_BACKTRACE=full
+
+script:
+  - cargo build
+  - cargo test
