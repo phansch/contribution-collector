@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/phansch/prs.svg?branch=master)](https://travis-ci.com/phansch/prs)
+
 # prs
 
 Fetches a list of your open source PRs.
