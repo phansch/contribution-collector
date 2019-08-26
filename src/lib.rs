@@ -24,7 +24,7 @@ pub fn fetch() -> Result<()> {
                          &SearchIssuesOptions::builder().sort(IssuesSort::Updated).per_page(100).order(SortDirection::Desc).build(),
                      )
                      .filter(move |res| {
-                         !res.html_url.contains(&current_username) && res.pull_request.is_some()
+                         !res.html_url.contains(&current_username) && res.pull_request.is_some() && res.state != "open"
                      })
                      .take(limit());
             my_prs.for_each(|res| {
@@ -32,12 +32,11 @@ pub fn fetch() -> Result<()> {
                     "Title:     {:?}\n\
                     Body:      {:?}\n\
                     HTML URL:  {:?}\n\
-                    URL:       {:?}\n\
                     State:     {:?}\n\
                     Closed at: {:?}\n\
                     ---------\n",
-                    res.title, res.body, res.html_url, res.url,
-                    res.state, res.closed_at
+                    res.title, res.body.unwrap_or_default(), res.html_url,
+                    res.state, res.closed_at.unwrap_or_default()
                 );
                 println!("{}", text);
                 Ok(())
