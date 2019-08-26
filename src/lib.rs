@@ -5,8 +5,23 @@ use tokio::runtime::Runtime;
 use hubcaps::search::{IssuesSort, SearchIssuesOptions};
 use hubcaps::{Credentials, Github, Result, SortDirection};
 
+#[derive(Debug)]
+pub enum State {
+    Open,
+    Closed
+}
+
+#[derive(Debug)]
+pub struct PullRequest {
+    pub title: String,
+    pub body: String,
+    pub html_url: String,
+    pub state: State,
+    pub closed_at: String,
+}
+
 /// Fetch all my open and recently closed PRs
-pub fn fetch() -> Result<()> {
+pub fn fetch() -> Result<Vec<PullRequest>> {
     let mut rt = Runtime::new()?;
     let gh = Github::new(
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
@@ -15,34 +30,39 @@ pub fn fetch() -> Result<()> {
     let current_user = rt.block_on(gh.users().authenticated())?;
     let current_username = current_user.login;
     println!("current_username: {:?}", current_username);
-    rt.block_on({
-        let my_prs = gh
-                     .search()
-                     .issues()
-                     .iter(
-                         format!("author:{}", &current_username),
-                         &SearchIssuesOptions::builder().sort(IssuesSort::Updated).per_page(100).order(SortDirection::Desc).build(),
-                     )
-                     .filter(move |res| {
-                         !res.html_url.contains(&current_username) && res.pull_request.is_some() && res.state != "open"
-                     })
-                     .take(limit());
-            my_prs.for_each(|res| {
-                let text = format!(
-                    "Title:     {:?}\n\
-                    Body:      {:?}\n\
-                    HTML URL:  {:?}\n\
-                    State:     {:?}\n\
-                    Closed at: {:?}\n\
-                    ---------\n",
-                    res.title, res.body.unwrap_or_default(), res.html_url,
-                    res.state, res.closed_at.unwrap_or_default()
-                );
-                println!("{}", text);
-                Ok(())
+    let prs = rt.block_on({
+        gh
+            .search()
+            .issues()
+            .iter(
+                format!("author:{}", &current_username),
+                &SearchIssuesOptions::builder().sort(IssuesSort::Updated).per_page(100).order(SortDirection::Desc).build(),
+            )
+            .filter(move |res| {
+                !res.html_url.contains(&current_username) && res.pull_request.is_some() && res.state != "open"
             })
+            .take(limit())
+            .collect()
     })?;
-    Ok(())
+    Ok(
+        prs.into_iter().map(|res| {
+            let state = if res.state == "closed" {
+                State::Closed
+            } else if res.state == "open" {
+                State::Open
+            } else {
+                panic!(format!("Unknown state '{}'", res.state));
+            };
+
+            PullRequest {
+                title: res.title,
+                body: res.body.unwrap_or_default(),
+                html_url: res.html_url,
+                state,
+                closed_at: res.closed_at.unwrap_or_default(),
+            }
+        }).collect()
+    )
 }
 
 /// Set the limit to ENV['LIMIT'] or 20 if not set or can't be parsed
