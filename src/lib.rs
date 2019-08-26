@@ -4,14 +4,15 @@ use futures::stream::Stream;
 use tokio::runtime::Runtime;
 use hubcaps::search::{IssuesSort, SearchIssuesOptions};
 use hubcaps::{Credentials, Github, Result, SortDirection};
+use serde::Serialize;
 
-#[derive(Debug)]
+#[derive(Serialize, Debug)]
 pub enum State {
     Open,
     Closed
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Debug)]
 pub struct PullRequest {
     pub title: String,
     pub body: String,
