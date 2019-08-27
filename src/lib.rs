@@ -30,7 +30,6 @@ pub fn fetch() -> Result<Vec<PullRequest>> {
     );
     let current_user = rt.block_on(gh.users().authenticated())?;
     let current_username = current_user.login;
-    println!("current_username: {:?}", current_username);
     let prs = rt.block_on({
         gh
             .search()
