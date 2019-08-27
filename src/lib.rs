@@ -16,6 +16,7 @@ pub enum State {
 pub struct PullRequest {
     pub title: String,
     pub body: String,
+    pub project: String,
     pub html_url: String,
     pub state: State,
     pub closed_at: String,
@@ -26,7 +27,7 @@ pub fn fetch() -> Result<Vec<PullRequest>> {
     let mut rt = Runtime::new()?;
     let gh = Github::new(
         concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
-        Credentials::Token(env::var("GH_TOKEN").unwrap())
+        Credentials::Token(env::var("GH_TOKEN").expect("GH_TOKEN env variable not set!"))
     );
     let current_user = rt.block_on(gh.users().authenticated())?;
     let current_username = current_user.login;
@@ -53,10 +54,14 @@ pub fn fetch() -> Result<Vec<PullRequest>> {
             } else {
                 panic!(format!("Unknown state '{}'", res.state));
             };
+            let url_parts = res.html_url.split('/').collect::<Vec<&str>>();
+            // Assuming that we always have the same GitHub URL, going to `unwrap` here.
+            let project = url_parts.get(4).expect("Unable to find 'project' part of the URL");
 
             PullRequest {
                 title: res.title,
                 body: res.body.unwrap_or_default(),
+                project: project.to_string(),
                 html_url: res.html_url,
                 state,
                 closed_at: res.closed_at.unwrap_or_default(),
