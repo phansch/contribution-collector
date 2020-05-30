@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/phansch/prs.svg?branch=master)](https://travis-ci.com/phansch/prs)
+[![Rust](https://github.com/phansch/prs/workflows/Rust/badge.svg)](https://github.com/phansch/prs/actions)
 
 # prs
 
