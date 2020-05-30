@@ -6,13 +6,13 @@ use hubcaps::search::{IssuesSort, SearchIssuesOptions};
 use hubcaps::{Credentials, Github, Result, SortDirection};
 use serde::Serialize;
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, PartialEq)]
 pub enum State {
     Open,
     Closed
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, PartialEq)]
 pub struct PullRequest {
     pub title: String,
     pub body: String,
@@ -39,39 +39,40 @@ pub fn fetch() -> Result<Vec<PullRequest>> {
                 format!("author:{}", &current_username),
                 &SearchIssuesOptions::builder().sort(IssuesSort::Updated).per_page(100).order(SortDirection::Desc).build(),
             )
-            .filter(move |issue| {
-                !issue.html_url.contains(&current_username) && issue.pull_request.is_some() && issue.state != "open"
-            })
+            .filter(move |issue| { is_merged_pull_request(&issue, &current_username) })
             .take(limit())
             .collect()
     })?;
-    Ok(
-        prs.into_iter().map(|issue| {
-            parse_pr(issue)
-        }).collect()
-    )
+    Ok(prs.into_iter().map(parse_pr).collect())
 }
 
-fn parse_pr(res: hubcaps::search::IssuesItem) -> PullRequest {
-    let state = if res.state == "closed" {
+fn parse_pr(pr: hubcaps::search::IssuesItem) -> PullRequest {
+    let state = if pr.state == "closed" {
         State::Closed
-    } else if res.state == "open" {
+    } else if pr.state == "open" {
         State::Open
     } else {
-        panic!(format!("Unknown state '{}'", res.state));
+        panic!(format!("Unknown state '{}'", pr.state));
     };
-    let url_parts = res.html_url.split('/').collect::<Vec<&str>>();
+
+    let url_parts = pr.html_url.split('/').collect::<Vec<&str>>();
     // Assuming that we always have the same GitHub URL, going to `unwrap` here.
     let project = url_parts.get(4).expect("Unable to find 'project' part of the URL");
 
     PullRequest {
-        title: res.title,
-        body: res.body.unwrap_or_default(),
+        title: pr.title,
+        body: pr.body.unwrap_or_default(),
         project: project.to_string(),
-        html_url: res.html_url,
+        html_url: pr.html_url,
         state,
-        closed_at: res.closed_at.unwrap_or_default(),
+        closed_at: pr.closed_at.unwrap_or_default(),
     }
+}
+
+fn is_merged_pull_request(issue: &hubcaps::search::IssuesItem, username: &str) -> bool {
+    !issue.html_url.contains(&username) &&
+        issue.pull_request.is_some() &&
+        issue.state != "open"
 }
 
 /// Set the limit to ENV['LIMIT'] or 20 if not set or can't be parsed
@@ -87,21 +88,75 @@ mod tests {
     use super::*;
 
     #[test]
-    #[should_panic(expected = "Unknown state \'\'")]
+    #[should_panic(expected = "Unknown state \'foo\'")]
     fn parse_pr_with_incorrect_state() {
-        let res = hubcaps::search::IssuesItem {
+        let res = build_issues_item(String::new(), String::from("foo"), true);
+        parse_pr(res);
+    }
+
+    #[test]
+    #[should_panic(expected = "Unable to find 'project' part of the URL")]
+    fn parse_pr_with_incorrect_html_url() {
+        let res = build_issues_item(String::new(), String::from("open"), true);
+        parse_pr(res);
+    }
+
+    #[test]
+    fn parse_pr_with_correct_data() {
+        let res = build_issues_item(
+            String::from("https://github.com/softprops/hubcaps/pull/245"),
+            String::from("open"),
+            true
+        );
+        assert_eq!(parse_pr(res), PullRequest {
+            title: String::new(),
+            body: String::new(),
+            project: String::from("hubcaps"),
+            html_url: String::from("https://github.com/softprops/hubcaps/pull/245"),
+            state: State::Open,
+            closed_at: String::new(),
+        });
+    }
+
+    #[test]
+    fn test_is_merged_pull_request() {
+        let closed_pr = build_issues_item(String::from("https://github.com/softprops/hubcaps/pull/245"), String::from("closed"), true);
+        assert!(is_merged_pull_request(&closed_pr, "lola"));
+
+        let own_pr = build_issues_item(String::from("https://github.com/lola/lolas-project/pull/245"), String::from("closed"), true);
+        assert!(!is_merged_pull_request(&own_pr, "lola"));
+
+        let open_pr = build_issues_item(String::from("https://github.com/softprops/hubcaps/pull/245"), String::from("open"), true);
+        assert!(!is_merged_pull_request(&open_pr, "lola"));
+
+        let issue = build_issues_item(String::from("https://github.com/softprops/hubcaps/pull/245"), String::from("closed"), false);
+        assert!(!is_merged_pull_request(&issue, "lola"));
+    }
+
+    fn build_issues_item(html_url: String, state: String, pull_request: bool) -> hubcaps::search::IssuesItem {
+        let pull_request = if pull_request {
+            Some(hubcaps::search::PullRequestInfo {
+                url: String::new(),
+                html_url: String::new(),
+                diff_url: String::new(),
+                patch_url: String::new(),
+            })
+        } else {
+            None
+        };
+        hubcaps::search::IssuesItem {
             url: String::new(),
             repository_url: String::new(),
             labels_url: String::new(),
             comments_url: String::new(),
             events_url: String::new(),
-            html_url: "some url".to_string(),
+            html_url,
             id: 1,
             number: 1,
             title: String::new(),
             user: FAKE_USER,
             labels: Vec::new(),
-            state: String::new(),
+            state,
             locked: false,
             assignee: None,
             assignees: Vec::new(),
@@ -109,10 +164,9 @@ mod tests {
             created_at: String::new(),
             updated_at: String::new(),
             closed_at: None,
-            pull_request: None,
+            pull_request,
             body: None,
-        };
-        parse_pr(res);
+        }
     }
 
     const FAKE_USER: hubcaps::users::User = hubcaps::users::User {
