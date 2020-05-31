@@ -1,5 +1,7 @@
+mod pulls;
+
 fn main() {
-    let prs = prs::fetch().unwrap();
+    let prs = pulls::fetch().unwrap();
 
     let json = serde_json::to_string(&prs).unwrap();
     println!("{}", json);
